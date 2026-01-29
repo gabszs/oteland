@@ -9,9 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import com.delfia.agent.config.ServiceOwnerSettings;
+import com.delfia.agent.telemetry.WideEvent;
 
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -40,33 +39,27 @@ public class OtelSpanEnricherFilter implements Filter {
 
         ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(httpRequest);
 
-        chain.doFilter(wrappedRequest, response);
+        // Create WideEvent and set on request BEFORE chain (like c.set in Hono)
+        WideEvent event = new WideEvent();
+        wrappedRequest.setAttribute(WideEvent.REQUEST_ATTRIBUTE_KEY, event);
 
-        Span span = Span.current();
-        if (!span.getSpanContext().isValid()) {
-            return;
-        }
-
-        AttributesBuilder event = Attributes.builder();
-
-        // Service owner attributes
+        // Service owner attributes (populated before request)
         event.put("service.environment", serviceOwner.environment());
         event.put("service.owner.name", serviceOwner.name());
         event.put("service.owner.url", serviceOwner.url());
         event.put("service.owner.contact", serviceOwner.contact());
 
-        // Request attributes
+        // Request attributes (populated before request)
         event.put("client.address", httpRequest.getRemoteAddr());
         event.put("http.request.method", httpRequest.getMethod());
         event.put("http.request.path", httpRequest.getRequestURI());
-        if (httpRequest.getQueryString() != null) {
-            event.put("http.request.query", httpRequest.getQueryString());
-        }
-        if (httpRequest.getHeader("User-Agent") != null) {
-            event.put("user_agent.original", httpRequest.getHeader("User-Agent"));
-        }
+        event.put("http.request.query", httpRequest.getQueryString());
+        event.put("user_agent.original", httpRequest.getHeader("User-Agent"));
 
-        // Response attributes
+        // Execute request chain - controllers can add to event via request.getAttribute
+        chain.doFilter(wrappedRequest, response);
+
+        // After request - add response attributes
         event.put("http.response.status_code", httpResponse.getStatus());
 
         // Payload (if present and not too large)
@@ -76,6 +69,10 @@ public class OtelSpanEnricherFilter implements Filter {
             event.put("http.request.body", payload);
         }
 
-        span.setAllAttributes(event.build());
+        // Set all attributes on span at the end
+        Span span = Span.current();
+        if (span.getSpanContext().isValid()) {
+            span.setAllAttributes(event.toAttributes());
+        }
     }
 }
