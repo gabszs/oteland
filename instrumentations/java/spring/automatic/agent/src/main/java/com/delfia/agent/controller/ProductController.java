@@ -20,7 +20,9 @@ import com.delfia.agent.dto.ProductRequest;
 import com.delfia.agent.dto.ProductResponse;
 import com.delfia.agent.entity.Product;
 import com.delfia.agent.service.ProductService;
+import com.delfia.agent.telemetry.WideEvent;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -28,53 +30,129 @@ import jakarta.validation.Valid;
 public class ProductController {
 
     private static final Logger log = LoggerFactory.getLogger(ProductController.class);
+    private static final String CONTROLLER_KEY = "product_controller";
 
     private final ProductService productService;
 
-    public ProductController(ProductService productService) { 
+    public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
+    private WideEvent getEvent(HttpServletRequest request) {
+        return (WideEvent) request.getAttribute(WideEvent.REQUEST_ATTRIBUTE_KEY);
+    }
+
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> findAll() {
+    public ResponseEntity<List<ProductResponse>> findAll(HttpServletRequest request) {
         log.info("Listing all products");
-        List<ProductResponse> products = productService.findAll()
+        WideEvent event = getEvent(request);
+
+        if (event != null) {
+            event.addToJson(CONTROLLER_KEY, "name", "ProductController");
+            event.addToJson(CONTROLLER_KEY, "method", "findAll");
+        }
+
+        List<ProductResponse> products = productService.findAll(event)
                 .stream()
                 .map(ProductMapper::toResponse)
                 .toList();
+
+        if (event != null) {
+            event.addToJson(CONTROLLER_KEY, "result_count", products.size());
+        }
+
         return ResponseEntity.ok(products);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductResponse> findById(@PathVariable Long id) {
+    public ResponseEntity<ProductResponse> findById(
+            @PathVariable Long id,
+            HttpServletRequest request) {
         log.info("Finding product by id={}", id);
-        Product product = productService.findById(id);
+        WideEvent event = getEvent(request);
+
+        if (event != null) {
+            event.addToJson(CONTROLLER_KEY, "name", "ProductController");
+            event.addToJson(CONTROLLER_KEY, "method", "findById");
+            event.addToJson(CONTROLLER_KEY, "path_param_id", id);
+        }
+
+        Product product = productService.findById(id, event);
+
+        if (event != null) {
+            event.addToJson("product", "id", product.getId());
+            event.addToJson("product", "name", product.getName());
+            event.addToJson("product", "sku", product.getSku());
+            event.addToJson("product", "price", product.getPrice().doubleValue());
+        }
+
         return ResponseEntity.ok(ProductMapper.toResponse(product));
     }
 
     @PostMapping
-    public ResponseEntity<ProductResponse> create(@Valid @RequestBody ProductRequest request) {
+    public ResponseEntity<ProductResponse> create(
+            @Valid @RequestBody ProductRequest request,
+            HttpServletRequest httpRequest) {
         log.info("Creating product name={} sku={}", request.getName(), request.getSku());
+        WideEvent event = getEvent(httpRequest);
+
+        if (event != null) {
+            event.addToJson(CONTROLLER_KEY, "name", "ProductController");
+            event.addToJson(CONTROLLER_KEY, "method", "create");
+            event.addToJson("product_input", "name", request.getName());
+            event.addToJson("product_input", "sku", request.getSku());
+            event.addToJson("product_input", "price", request.getPrice().doubleValue());
+            event.addToJson("product_input", "quantity", request.getQuantity());
+        }
+
         Product product = ProductMapper.toEntity(request);
-        Product saved = productService.create(product);
+        Product saved = productService.create(product, event);
+
+        if (event != null) {
+            event.addToJson("product", "id", saved.getId());
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(ProductMapper.toResponse(saved));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody ProductRequest request) {
+            @Valid @RequestBody ProductRequest request,
+            HttpServletRequest httpRequest) {
         log.info("Updating product id={}", id);
-        Product existing = productService.findById(id);
+        WideEvent event = getEvent(httpRequest);
+
+        if (event != null) {
+            event.addToJson(CONTROLLER_KEY, "name", "ProductController");
+            event.addToJson(CONTROLLER_KEY, "method", "update");
+            event.addToJson(CONTROLLER_KEY, "path_param_id", id);
+            event.addToJson("product_input", "name", request.getName());
+            event.addToJson("product_input", "sku", request.getSku());
+        }
+
+        Product existing = productService.findById(id, event);
         ProductMapper.updateEntity(existing, request);
-        Product updated = productService.update(id, existing);
+        Product updated = productService.update(id, existing, event);
+
         return ResponseEntity.ok(ProductMapper.toResponse(updated));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            HttpServletRequest request) {
         log.info("Deleting product id={}", id);
-        productService.delete(id);
+        WideEvent event = getEvent(request);
+
+        if (event != null) {
+            event.addToJson(CONTROLLER_KEY, "name", "ProductController");
+            event.addToJson(CONTROLLER_KEY, "method", "delete");
+            event.addToJson(CONTROLLER_KEY, "path_param_id", id);
+        }
+
+        productService.delete(id, event);
+
         return ResponseEntity.noContent().build();
     }
 }

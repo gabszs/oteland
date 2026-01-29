@@ -3,10 +3,14 @@ package com.delfia.agent.telemetry;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.OperatingSystemMXBean;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
@@ -14,8 +18,10 @@ import io.opentelemetry.api.common.AttributesBuilder;
 public class WideEvent {
 
     public static final String REQUEST_ATTRIBUTE_KEY = "wideEvent";
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, Object> attributes = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Object>> jsonAttributes = new ConcurrentHashMap<>();
     private final long startTimeMs = System.currentTimeMillis();
 
     // Stats counters
@@ -67,6 +73,25 @@ public class WideEvent {
         cacheMissCount.incrementAndGet();
     }
 
+    /**
+     * Put a nested JSON object attribute.
+     * Usage: event.putJson("service", Map.of("operation", "findAll", "entity", "Product"))
+     * Result: service = {"operation":"findAll","entity":"Product"}
+     */
+    public WideEvent putJson(String key, Map<String, Object> value) {
+        jsonAttributes.put(key, new HashMap<>(value));
+        return this;
+    }
+
+    /**
+     * Add a field to an existing JSON attribute, creating it if needed.
+     * Usage: event.addToJson("service", "operation", "findAll")
+     */
+    public WideEvent addToJson(String key, String field, Object value) {
+        jsonAttributes.computeIfAbsent(key, k -> new ConcurrentHashMap<>()).put(field, value);
+        return this;
+    }
+
     public Attributes toAttributes() {
         // Add duration
         long durationMs = System.currentTimeMillis() - startTimeMs;
@@ -99,6 +124,17 @@ public class WideEvent {
                 builder.put(entry.getKey(), b);
             }
         }
+
+        // Add JSON attributes as serialized strings
+        for (Map.Entry<String, Map<String, Object>> entry : jsonAttributes.entrySet()) {
+            try {
+                String json = objectMapper.writeValueAsString(entry.getValue());
+                builder.put(entry.getKey(), json);
+            } catch (JsonProcessingException e) {
+                // Skip if serialization fails
+            }
+        }
+
         return builder.build();
     }
 
