@@ -3,6 +3,8 @@ package com.delfia.agent.controller;
 import java.util.Enumeration;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,8 +16,11 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 public class DebugController {
 
+    private static final Logger log = LoggerFactory.getLogger(DebugController.class);
+
     @GetMapping("/debug")
     public ResponseEntity<Map<String, String>> debugGet(HttpServletRequest request) {
+        log.info("Debug GET requested from {}", request.getRemoteAddr());
         String curl = buildCurl(request, null);
         return ResponseEntity.ok(Map.of("curl", curl));
     }
@@ -24,6 +29,7 @@ public class DebugController {
     public ResponseEntity<Map<String, String>> debugPost(
             HttpServletRequest request,
             @RequestBody(required = false) String body) {
+        log.info("Debug POST requested from {}", request.getRemoteAddr());
         String curl = buildCurl(request, body);
         return ResponseEntity.ok(Map.of("curl", curl));
     }
