@@ -10,7 +10,8 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import com.delfia.agent.config.ServiceOwnerSettings;
 
-import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -46,27 +47,35 @@ public class OtelSpanEnricherFilter implements Filter {
             return;
         }
 
+        AttributesBuilder event = Attributes.builder();
+
         // Service owner attributes
-        span.setAttribute(AttributeKey.stringKey("service.environment"), serviceOwner.environment());
-        span.setAttribute(AttributeKey.stringKey("service.owner.name"), serviceOwner.name());
-        span.setAttribute(AttributeKey.stringKey("service.owner.url"), serviceOwner.url());
-        span.setAttribute(AttributeKey.stringKey("service.owner.contact"), serviceOwner.contact());
-        span.setAttribute(AttributeKey.stringKey("client.address"), httpRequest.getRemoteAddr());
+        event.put("service.environment", serviceOwner.environment());
+        event.put("service.owner.name", serviceOwner.name());
+        event.put("service.owner.url", serviceOwner.url());
+        event.put("service.owner.contact", serviceOwner.contact());
 
         // Request attributes
-        span.setAttribute(AttributeKey.stringKey("http.request.method"), httpRequest.getMethod());
-        span.setAttribute(AttributeKey.stringKey("http.request.path"), httpRequest.getRequestURI());
-        span.setAttribute(AttributeKey.stringKey("http.request.query"), httpRequest.getQueryString());
-        span.setAttribute(AttributeKey.stringKey("user_agent.original"), httpRequest.getHeader("User-Agent"));
+        event.put("client.address", httpRequest.getRemoteAddr());
+        event.put("http.request.method", httpRequest.getMethod());
+        event.put("http.request.path", httpRequest.getRequestURI());
+        if (httpRequest.getQueryString() != null) {
+            event.put("http.request.query", httpRequest.getQueryString());
+        }
+        if (httpRequest.getHeader("User-Agent") != null) {
+            event.put("user_agent.original", httpRequest.getHeader("User-Agent"));
+        }
 
         // Response attributes
-        span.setAttribute(AttributeKey.longKey("http.response.status_code"), httpResponse.getStatus());
+        event.put("http.response.status_code", httpResponse.getStatus());
 
         // Payload (if present and not too large)
         byte[] content = wrappedRequest.getContentAsByteArray();
         if (content.length > 0 && content.length <= 10_000) {
             String payload = new String(content, StandardCharsets.UTF_8);
-            span.setAttribute(AttributeKey.stringKey("http.request.body"), payload);
+            event.put("http.request.body", payload);
         }
+
+        span.setAllAttributes(event.build());
     }
 }
