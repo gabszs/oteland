@@ -1,0 +1,97 @@
+name: Production-Pipeline-Dockerhub
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  IMAGE_NAME: auth_converter
+
+  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+  DATABASE_URL: ${{vars.TEST_DATABASE_URL}}
+  TEST_DATABASE_URL: ${{vars.TEST_DATABASE_URL}}
+  SECRET_KEY: ""
+  ALGORITHM:  ${{ secrets.ALGORITHM }}
+  ACCESS_TOKEN_EXPIRE_MINUTES: 30
+  PAGE: "1"
+  PAGE_SIZE:  "10"
+  ORDERING: "-created_at"
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_DB: ${{vars.TEST_POSTGRES_DB}}
+          POSTGRES_PASSWORD: ${{vars.TEST_POSTGRES_PASSWORD}}
+          POSTGRES_USER: ${{vars.TEST_POSTGRES_USER}}
+        ports:
+          - 5433:5432
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ACCOUNT_MODIFY_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.11.1"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install Dependencies
+        run: poetry install
+
+      - name: Run tests
+        run: poetry run task test
+
+      - name: Set image tag from commit hash
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+
+      - name: Docker Hub Login
+        run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+      - name: Push Docker Image to Docker Hub
+        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }} --all-tags
+
+      - name: Trigger Portainer Webhook
+        run: curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL }}
+
+      - name: Checkout GitOps Branch
+        run: |
+          git fetch origin
+          git checkout gitops
+
+      - name: Update Image Tag in Deployment
+        run: |
+          sed -i "s|image: ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:.*|image: ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|" k8s/deployment.yaml
+
+      - name: Verify deployment.yaml
+        run: cat k8s/deployment.yaml
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.email "ci-bot@ci.com"
+          git config --global user.name "CI Bot"
+          git add k8s/deployment.yaml
+          git commit -m "Updating the image tag: ${{ env.IMAGE_TAG }}"
+          git push origin gitops
