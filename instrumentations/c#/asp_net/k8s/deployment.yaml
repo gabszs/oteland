@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: password-generator-dotnet
+  namespace: password-generator-dotnet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: password-generator-dotnet
+  template:
+    metadata:
+      labels:
+        app: password-generator-dotnet
+      annotations:
+        instrumentation.opentelemetry.io/inject-dotnet: "password-generator-dotnet/dotnet-auto-instrumentation"
+    spec:
+      containers:
+      - name: password-generator-dotnet
+        image: gabzsz/dotnet-otel-crd:v1.4
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        envFrom:
+        - configMapRef:
+            name: password-generator-config

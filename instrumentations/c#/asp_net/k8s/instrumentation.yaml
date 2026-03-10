@@ -1,0 +1,26 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: dotnet-auto-instrumentation
+  namespace: password-generator-dotnet
+spec:
+  exporter:
+    endpoint: http://otel-collector-deployment-opentelemetry-collector.observability.svc.cluster.local:4318
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+  dotnet:
+    env:
+      - name: DOTNET_EnableDiagnostics
+        value: "1"
+      - name: DOTNET_EnableDiagnostics_Profiler
+        value: "1"
+      - name: OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED
+        value: "true"
+      - name: OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED
+        value: "true"
+      - name: OTEL_DOTNET_AUTO_TRACES_KAFKA_INSTRUMENTATION_ENABLED
+        value: "true"

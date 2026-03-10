@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_CONTAINER_NAME}
+    ports:
+      - "${REDIS_HOST_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    container_name: ${API_CONTAINER_NAME}
+    ports:
+      - "${API_HOST_PORT}:${API_CONTAINER_PORT}"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - REDIS_CONNECTION_STRING=${REDIS_CONNECTION_STRING}
+      - EXTERNAL_API_URL=${EXTERNAL_API_URL}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - KAFKA_DEFAULT_TOPIC=${KAFKA_DEFAULT_TOPIC}
+      - KAFKA_DEFAULT_MESSAGE_KEY=${KAFKA_DEFAULT_MESSAGE_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:
