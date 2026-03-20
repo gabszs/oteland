@@ -1,0 +1,86 @@
+# ─────────────────────────────────────────────────────────────────
+# 02-instrumentation.yaml
+# CRD: Instrumentation
+#   Recurso único que cobre Node.js e .NET.
+#   O Operator decide qual agente injetar de acordo com a annotation
+#   do Deployment:
+#     Node.js → instrumentation.opentelemetry.io/inject-nodejs: "observability/otel-instrumentation"
+#     .NET    → instrumentation.opentelemetry.io/inject-dotnet:  "observability/otel-instrumentation"
+# ─────────────────────────────────────────────────────────────────
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: otel-instrumentation
+  namespace: observability
+spec:
+  exporter:
+    endpoint: http://otel-collector-deployment-opentelemetry-collector.observability.svc.cluster.local:4318
+
+  propagators:
+    - tracecontext
+    - baggage
+
+  # Sampler: coleta 100% dos traces (ajuste em prod)
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+
+  # ── Node.js ───────────────────────────────────────────────────
+  nodejs:
+    # Descomente para fixar versão do agente:
+    # image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:0.54.0
+
+    env:
+      # Nome do serviço (via label do pod):
+      # - name: OTEL_SERVICE_NAME
+      #   valueFrom:
+      #     fieldRef:
+      #       fieldPath: metadata.labels['app']
+
+      # Restringe instrumentações ativas:
+      # - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
+      #   value: "http,express,pg,redis,ioredis"
+
+      # Nível de log do SDK (debug | info | warn | error):
+      # - name: OTEL_LOG_LEVEL
+      #   value: "info"
+
+      # Habilita métricas de runtime (event loop, GC, heap):
+      # - name: OTEL_METRICS_EXPORTER
+      #   value: "otlp"
+
+      # Habilita logs via OTLP:
+      # - name: OTEL_LOGS_EXPORTER
+      #   value: "otlp"
+
+      - name: OTEL_RESOURCE_ATTRIBUTES
+        value: "deployment.environment=dev,team=backend"
+
+  # ── .NET ──────────────────────────────────────────────────────
+  dotnet:
+    # Descomente para fixar versão do agente:
+    # image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:1.9.0
+
+    env:
+      # Habilita o diagnóstico CLR necessário para o profiler
+      - name: DOTNET_EnableDiagnostics
+        value: "1"
+      - name: DOTNET_EnableDiagnostics_Profiler
+        value: "1"
+
+      # Habilita a auto-instrumentação
+      - name: OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED
+        value: "true"
+      - name: OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED
+        value: "true"
+      - name: OTEL_DOTNET_AUTO_TRACES_KAFKA_INSTRUMENTATION_ENABLED
+        value: "true"
+
+      # Nome do serviço (via label do pod):
+      # - name: OTEL_SERVICE_NAME
+      #   valueFrom:
+      #     fieldRef:
+      #       fieldPath: metadata.labels['app']
+
+      # - name: OTEL_RESOURCE_ATTRIBUTES
+      #   value: "deployment.environment=dev,team=backend"
