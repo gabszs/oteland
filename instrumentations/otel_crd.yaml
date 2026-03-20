@@ -3,9 +3,41 @@
 # CRD: Instrumentation
 #   Recurso único que cobre Node.js e .NET.
 #   O Operator decide qual agente injetar de acordo com a annotation
-#   do Deployment:
-#     Node.js → instrumentation.opentelemetry.io/inject-nodejs: "observability/otel-instrumentation"
-#     .NET    → instrumentation.opentelemetry.io/inject-dotnet:  "observability/otel-instrumentation"
+#   do Deployment.
+#
+# ── Pré-requisito: instalar o OTel Operator via Helm ─────────────
+#
+#   helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+#   helm repo update
+#
+#   helm install opentelemetry-operator open-telemetry/opentelemetry-operator \
+#     --namespace observability \
+#     --create-namespace \
+#     --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
+#     --set admissionWebhooks.certManager.enabled=false \
+#     --set admissionWebhooks.autoGenerateCert.enabled=true
+#
+# ── Aplicar este manifest ─────────────────────────────────────────
+#
+#   kubectl apply -f 02-instrumentation.yaml
+#
+# ── Annotations necessárias nos Deployments ──────────────────────
+#
+#   Como este recurso está no namespace "observability", os Deployments
+#   em outros namespaces devem referenciar com o prefixo "observability/":
+#
+#   Node.js:
+#     annotations:
+#       instrumentation.opentelemetry.io/inject-nodejs: "observability/otel-instrumentation"
+#
+#   .NET:
+#     annotations:
+#       instrumentation.opentelemetry.io/inject-dotnet: "observability/otel-instrumentation"
+#
+#   Caso o Deployment esteja no mesmo namespace "observability",
+#   pode omitir o prefixo:
+#     instrumentation.opentelemetry.io/inject-nodejs: "otel-instrumentation"
+#
 # ─────────────────────────────────────────────────────────────────
 apiVersion: opentelemetry.io/v1alpha1
 kind: Instrumentation
