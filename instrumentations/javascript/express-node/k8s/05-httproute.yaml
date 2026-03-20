@@ -1,0 +1,15 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: otel-crd-node
+  namespace: otel-crd-node
+spec:
+  parentRefs:
+  - name: web-gateway
+    namespace: traefik
+  hostnames:
+  - "otel-crd-node.gabrielcarvalho.dev"
+  rules:
+  - backendRefs:
+    - name: otel-crd-node-svc
+      port: 80

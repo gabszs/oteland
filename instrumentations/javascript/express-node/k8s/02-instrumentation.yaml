@@ -1,0 +1,60 @@
+# ─────────────────────────────────────────────────────────────────
+# 02-instrumentation.yaml
+# CRD: Instrumentation
+#   Define COMO o agente Node.js será injetado nos pods.
+#   O Operator lê a annotation do Deployment e injeta um init-container
+#   que copia os binários OTel e define NODE_OPTIONS automaticamente.
+# ─────────────────────────────────────────────────────────────────
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: otel-crd-node-instrumentation
+  namespace: otel-crd-node
+spec:
+  # Endpoint do collector criado acima
+  exporter:
+    endpoint: http://otel-collector-deployment-opentelemetry-collector.observability.svc.cluster.local:4318
+  propagators:
+    - tracecontext
+    - baggage
+
+  # Sampler: coleta 100% dos traces (ajuste em prod)
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
+
+  # ── Configuração específica para Node.js ──────────────────────
+  nodejs:
+    # Imagem do agente injetado como init-container
+    # O Operator usa a versão mais recente compatível por padrão.
+    # Descomente para fixar uma versão específica:
+    # image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-nodejs:0.54.0
+
+    env:
+      # Nome do serviço exibido no Jaeger
+      # - name: OTEL_SERVICE_NAME
+      #   valueFrom:
+      #     fieldRef:
+      #       fieldPath: metadata.labels['app']
+
+      # Habilita apenas as instrumentações que usamos.
+      # Remova esta linha para habilitar TODAS (http, express, pg, redis,
+      # ioredis, dns, net, fs, grpc, graphql, kafkajs, etc.)
+      # - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
+      #   value: "http,express,pg,redis,ioredis"
+
+      # # Nível de log do SDK (debug | info | warn | error)
+      # - name: OTEL_LOG_LEVEL
+      #   value: "info"
+
+      # # Habilita métricas de runtime (event loop, GC, heap)
+      # - name: OTEL_METRICS_EXPORTER
+      #   value: "otlp"
+
+      # # Habilita logs via OTLP
+      # - name: OTEL_LOGS_EXPORTER
+      #   value: "otlp"
+
+      # Adiciona atributos de resource customizados
+      - name: OTEL_RESOURCE_ATTRIBUTES
+        value: "deployment.environment=dev,team=backend"

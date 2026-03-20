@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-crd-node
+  namespace: otel-crd-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-crd-node
+  template:
+    metadata:
+      labels:
+        app: otel-crd-node
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "otel-crd-node/otel-crd-node-instrumentation"
+    spec:
+      containers:
+      - name: otel-crd-node
+        image: gabzsz/otel-crd-node:v1.1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        envFrom:
+        - configMapRef:
+            name: otel-crd-node-config
