@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize, timeout } from 'rxjs/operators';
+import { resolveTraceId } from '../../trace-id.utils';
 
 interface PasswordApiResponse {
   data: string[];
@@ -88,13 +89,13 @@ export class PasswordComponent {
       )
       .subscribe({
       next: (response: HttpResponse<PasswordApiResponse>) => {
-        this.simpleTraceId = this.extractTraceId(response.headers);
+        this.simpleTraceId = resolveTraceId(response.headers, response.body);
         this.simpleResponseRaw = this.formatForDisplay(response.body ?? null);
         this.setMessage('Senhas simples geradas com sucesso', 'success');
         this.refreshView();
       },
       error: (error) => {
-        this.simpleTraceId = this.extractTraceId(error?.headers);
+        this.simpleTraceId = resolveTraceId(error?.headers, error?.error);
         this.simpleResponseRaw = this.formatForDisplay(this.buildErrorPayload(error));
         this.handleRequestError('Erro ao gerar senha simples', error);
         this.refreshView();
@@ -129,13 +130,13 @@ export class PasswordComponent {
       )
       .subscribe({
       next: (response: HttpResponse<PasswordApiResponse>) => {
-        this.pinTraceId = this.extractTraceId(response.headers);
+        this.pinTraceId = resolveTraceId(response.headers, response.body);
         this.pinResponseRaw = this.formatForDisplay(response.body ?? null);
         this.setMessage('PINs gerados com sucesso', 'success');
         this.refreshView();
       },
       error: (error) => {
-        this.pinTraceId = this.extractTraceId(error?.headers);
+        this.pinTraceId = resolveTraceId(error?.headers, error?.error);
         this.pinResponseRaw = this.formatForDisplay(this.buildErrorPayload(error));
         this.handleRequestError('Erro ao gerar PIN', error);
         this.refreshView();
@@ -182,75 +183,18 @@ export class PasswordComponent {
       )
       .subscribe({
       next: (response: HttpResponse<PasswordApiResponse>) => {
-        this.complexTraceId = this.extractTraceId(response.headers);
+        this.complexTraceId = resolveTraceId(response.headers, response.body);
         this.complexResponseRaw = this.formatForDisplay(response.body ?? null);
         this.setMessage('Senhas complexas geradas com sucesso', 'success');
         this.refreshView();
       },
       error: (error) => {
-        this.complexTraceId = this.extractTraceId(error?.headers);
+        this.complexTraceId = resolveTraceId(error?.headers, error?.error);
         this.complexResponseRaw = this.formatForDisplay(this.buildErrorPayload(error));
         this.handleRequestError('Erro ao gerar senha complexa', error);
         this.refreshView();
       }
     });
-  }
-
-  private extractTraceId(headers: HttpHeaders | null | undefined): string {
-    const otelTraceId = this.getHeaderCaseInsensitive(headers, 'otel-trace-id');
-    if (otelTraceId) {
-      return otelTraceId.toUpperCase();
-    }
-
-    const xTraceId = this.getHeaderCaseInsensitive(headers, 'x-trace-id');
-    if (xTraceId) {
-      return xTraceId.toUpperCase();
-    }
-
-    const traceparent = this.getHeaderCaseInsensitive(headers, 'traceparent');
-    if (traceparent) {
-      const parts = traceparent.split('-');
-      if (parts.length >= 2 && parts[1]) {
-        return parts[1].toUpperCase();
-      }
-      return traceparent;
-    }
-
-    return 'não informado';
-  }
-
-  private getHeaderCaseInsensitive(
-    headers: HttpHeaders | null | undefined,
-    headerName: string
-  ): string | null {
-    if (!headers) {
-      return null;
-    }
-
-    const expected = this.normalizeHeaderName(headerName);
-    const keyByUpperCase = new Map<string, string>();
-
-    for (const key of headers.keys()) {
-      keyByUpperCase.set(this.normalizeHeaderName(key), key);
-    }
-
-    const matchedKey = keyByUpperCase.get(expected);
-    if (matchedKey) {
-      return headers.get(matchedKey);
-    }
-
-    for (const candidate of [headerName, headerName.toLowerCase(), headerName.toUpperCase()]) {
-      const value = headers.get(candidate);
-      if (value) {
-        return value;
-      }
-    }
-
-    return null;
-  }
-
-  private normalizeHeaderName(headerName: string): string {
-    return headerName.trim().toUpperCase();
   }
 
   private formatForDisplay(payload: unknown): string {

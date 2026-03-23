@@ -4,6 +4,7 @@ import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { faro } from '@grafana/faro-web-sdk';
 import { finalize, timeout } from 'rxjs/operators';
+import { resolveTraceId } from '../../trace-id.utils';
 import { setTraceMetaAttributes, setTraceUserId } from '../../trace-user-context';
 
 interface MetaAttributePair {
@@ -112,16 +113,12 @@ export class OtelComponent {
         )
         .subscribe({
         next: (res: HttpResponse<unknown>) => {
-          const traceIdFromHeaders = this.extractTraceId(res.headers);
-          const traceIdFromBody = this.extractTraceIdFromBody(res.body);
-          this.traceId = traceIdFromHeaders !== 'não informado' ? traceIdFromHeaders : (traceIdFromBody ?? 'não informado');
+          this.traceId = resolveTraceId(res.headers, res.body);
           this.response = this.formatForDisplay(res.body ?? null);
           this.refreshView();
         },
         error: (err: any) => {
-          const traceIdFromHeaders = this.extractTraceId(err?.headers);
-          const traceIdFromBody = this.extractTraceIdFromBody(err?.error);
-          this.traceId = traceIdFromHeaders !== 'não informado' ? traceIdFromHeaders : (traceIdFromBody ?? 'não informado');
+          this.traceId = resolveTraceId(err?.headers, err?.error);
           this.error = 'Erro ao enviar dados: ' + (err.error?.message || err.message);
           this.response = this.formatForDisplay({
             status: err?.status ?? null,
@@ -170,132 +167,6 @@ export class OtelComponent {
     } catch {
       return String(payload);
     }
-  }
-
-  private extractTraceId(headers: HttpHeaders | null | undefined): string {
-    const otelTraceId = this.getHeaderCaseInsensitive(headers, 'otel-trace-id');
-    if (otelTraceId) {
-      return this.normalizeTraceId(otelTraceId);
-    }
-
-    const xTraceId = this.getHeaderCaseInsensitive(headers, 'x-trace-id');
-    if (xTraceId) {
-      return this.normalizeTraceId(xTraceId);
-    }
-
-    const traceparent = this.getHeaderCaseInsensitive(headers, 'traceparent');
-    if (traceparent) {
-      const parsedTraceId = this.extractTraceIdFromTraceparent(traceparent);
-      if (parsedTraceId) {
-        return parsedTraceId;
-      }
-      return traceparent.trim();
-    }
-
-    return 'não informado';
-  }
-
-  private getHeaderCaseInsensitive(
-    headers: HttpHeaders | null | undefined,
-    headerName: string
-  ): string | null {
-    if (!headers) {
-      return null;
-    }
-
-    const expected = this.normalizeHeaderName(headerName);
-    const keyByUpperCase = new Map<string, string>();
-
-    for (const key of headers.keys()) {
-      keyByUpperCase.set(this.normalizeHeaderName(key), key);
-    }
-
-    const matchedKey = keyByUpperCase.get(expected);
-    if (matchedKey) {
-      return headers.get(matchedKey);
-    }
-
-    for (const candidate of [headerName, headerName.toLowerCase(), headerName.toUpperCase()]) {
-      const value = headers.get(candidate);
-      if (value) {
-        return value;
-      }
-    }
-
-    return null;
-  }
-
-  private normalizeHeaderName(headerName: string): string {
-    return headerName.trim().toUpperCase();
-  }
-
-  private extractTraceIdFromBody(payload: unknown): string | null {
-    if (!this.isRecord(payload)) {
-      return null;
-    }
-
-    const body = payload;
-    const directTraceId = body['trace_id'] ?? body['traceId'] ?? body['otel-trace-id'];
-    if (typeof directTraceId === 'string' && directTraceId.trim()) {
-      return this.normalizeTraceId(directTraceId);
-    }
-
-    const bodyHeaders = body['headers'];
-    if (!this.isRecord(bodyHeaders)) {
-      return null;
-    }
-
-    const otelTraceId = this.getCaseInsensitiveValue(bodyHeaders, 'otel-trace-id');
-    if (otelTraceId) {
-      return this.normalizeTraceId(otelTraceId);
-    }
-
-    const xTraceId = this.getCaseInsensitiveValue(bodyHeaders, 'x-trace-id');
-    if (xTraceId) {
-      return this.normalizeTraceId(xTraceId);
-    }
-
-    const traceparent = this.getCaseInsensitiveValue(bodyHeaders, 'traceparent');
-    if (!traceparent) {
-      return null;
-    }
-
-    return this.extractTraceIdFromTraceparent(traceparent);
-  }
-
-  private getCaseInsensitiveValue(
-    source: Record<string, unknown>,
-    targetKey: string
-  ): string | null {
-    const normalizedTarget = this.normalizeHeaderName(targetKey);
-    for (const [key, value] of Object.entries(source)) {
-      if (this.normalizeHeaderName(key) !== normalizedTarget) {
-        continue;
-      }
-
-      if (typeof value === 'string' && value.trim()) {
-        return value.trim();
-      }
-    }
-
-    return null;
-  }
-
-  private extractTraceIdFromTraceparent(traceparent: string): string | null {
-    const parts = traceparent.trim().split('-');
-    if (parts.length < 2 || !parts[1]) {
-      return null;
-    }
-
-    return this.normalizeTraceId(parts[1]);
-  }
-
-  private normalizeTraceId(traceId: string): string {
-    return traceId.trim().toUpperCase();
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === 'object';
   }
 
   private configureGlobalUser(showMessage: boolean): boolean {

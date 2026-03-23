@@ -10,6 +10,7 @@ faro/
 ├── backend/           # API Python (FastAPI)
 ├── compose.yaml       # Docker Compose para orquestração
 ├── BACKEND_SETUP.md   # Instruções para setup do backend
+├── DOCUMENTACAO_IA_FARO_FRONTEND.md # Guia de instrumentação Faro no frontend
 └── README.md          # Este arquivo
 ```
 
@@ -112,3 +113,4 @@ docker-compose down
 
 - Veja [BACKEND_SETUP.md](./BACKEND_SETUP.md) para instruções específicas do backend
 - Veja [frontend/SETUP.md](./frontend/SETUP.md) para instruções do frontend
+- Veja [DOCUMENTACAO_IA_FARO_FRONTEND.md](./DOCUMENTACAO_IA_FARO_FRONTEND.md) para o passo a passo de instrumentação do frontend com Faro
