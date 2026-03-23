@@ -1,0 +1,43 @@
+<div class="otel-container">
+  <h1>OpenTelemetry - Debug</h1>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+
+  <div class="form-group">
+    <label for="id">ID (não utilizado por enquanto):</label>
+    <input
+      type="text"
+      id="id"
+      [(ngModel)]="id"
+      placeholder="Ex.: trace-id-123"
+      class="input-field"
+    />
+  </div>
+
+  <div class="form-group">
+    <label for="jsonData">Dados JSON:</label>
+    <textarea
+      id="jsonData"
+      [(ngModel)]="jsonData"
+      placeholder="Cole seu JSON aqui..."
+      class="textarea-field"
+    ></textarea>
+    <button
+      (click)="sendDebugData()"
+      class="btn-send"
+      [disabled]="loading || !jsonData.trim()"
+    >
+      {{ loading ? 'Enviando...' : 'Enviar para Debug' }}
+    </button>
+  </div>
+
+  <div class="response-section" *ngIf="response">
+    <h2>Resposta do Servidor:</h2>
+    <div class="response-box">
+      <p class="trace-id"><strong>Trace ID:</strong> {{ traceId || 'não informado' }}</p>
+      <pre>{{ response }}</pre>
+    </div>
+  </div>
+</div>

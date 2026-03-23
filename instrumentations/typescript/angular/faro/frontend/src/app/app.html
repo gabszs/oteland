@@ -1,0 +1,20 @@
+<div class="app-container">
+  <header class="app-header">
+    <h1>Documentação App</h1>
+    <nav class="app-nav">
+      <a routerLink="/otel" routerLinkActive="active">OpenTelemetry</a>
+      <a routerLink="/password" routerLinkActive="active">Password</a>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+      <a routerLink="/docs" routerLinkActive="active">Docs</a>
+      <a routerLink="/privacy" routerLinkActive="active">Privacy</a>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="app-footer">
+    <p>&copy; 2024 Documentação App. Todos os direitos reservados.</p>
+  </footer>
+</div>

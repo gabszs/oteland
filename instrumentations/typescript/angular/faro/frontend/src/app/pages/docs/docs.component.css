@@ -1,0 +1,37 @@
+.docs-container {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 2rem;
+}
+
+.doc-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: #f9f9f9;
+  border-left: 4px solid #0066cc;
+  border-radius: 4px;
+}
+
+.doc-section h2 {
+  color: #0066cc;
+  margin-top: 0;
+}
+
+.doc-section p {
+  color: #666;
+  line-height: 1.6;
+}
+
+.doc-section ul {
+  color: #666;
+  line-height: 1.8;
+}
+
+.doc-section li {
+  margin-bottom: 0.5rem;
+}
