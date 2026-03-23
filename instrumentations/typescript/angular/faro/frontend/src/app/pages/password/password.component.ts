@@ -26,7 +26,8 @@ interface ComplexPasswordPayload {
 })
 export class PasswordComponent {
   private readonly requestTimeoutMs = 15000;
-  private readonly apiBaseUrl = `${window.location.protocol}//${window.location.hostname}:8000/v1`;
+  readonly defaultApiBaseUrl: string = `${window.location.protocol}//${window.location.hostname}:8000/v1`;
+  apiBaseUrl: string = this.defaultApiBaseUrl;
 
   simpleLength: number = 12;
   simpleQuantity: number = 1;
@@ -69,6 +70,7 @@ export class PasswordComponent {
     this.simpleTraceId = 'Aguardando...';
     this.simpleResponseRaw = 'Aguardando resposta...';
     this.refreshView();
+    const apiBaseUrl = this.getApiBaseUrl();
 
     const params = new HttpParams()
       .set('password_length', String(this.simpleLength))
@@ -76,7 +78,7 @@ export class PasswordComponent {
       .set('has_punctuation', String(this.simpleHasPunctuation));
 
     this.http
-      .get<PasswordApiResponse>(`${this.apiBaseUrl}/`, { params, observe: 'response' as const })
+      .get<PasswordApiResponse>(`${apiBaseUrl}/`, { params, observe: 'response' as const })
       .pipe(
         timeout(this.requestTimeoutMs),
         finalize(() => {
@@ -110,13 +112,14 @@ export class PasswordComponent {
     this.pinTraceId = 'Aguardando...';
     this.pinResponseRaw = 'Aguardando resposta...';
     this.refreshView();
+    const apiBaseUrl = this.getApiBaseUrl();
 
     const params = new HttpParams()
       .set('password_length', String(this.pinLength))
       .set('quantity', String(this.pinQuantity));
 
     this.http
-      .get<PasswordApiResponse>(`${this.apiBaseUrl}/pin`, { params, observe: 'response' as const })
+      .get<PasswordApiResponse>(`${apiBaseUrl}/pin`, { params, observe: 'response' as const })
       .pipe(
         timeout(this.requestTimeoutMs),
         finalize(() => {
@@ -167,8 +170,9 @@ export class PasswordComponent {
     this.complexTraceId = 'Aguardando...';
     this.complexResponseRaw = 'Aguardando resposta...';
     this.refreshView();
+    const apiBaseUrl = this.getApiBaseUrl();
     this.http
-      .post<PasswordApiResponse>(`${this.apiBaseUrl}/complex_password`, payload, { observe: 'response' as const })
+      .post<PasswordApiResponse>(`${apiBaseUrl}/complex_password`, payload, { observe: 'response' as const })
       .pipe(
         timeout(this.requestTimeoutMs),
         finalize(() => {
@@ -193,26 +197,60 @@ export class PasswordComponent {
   }
 
   private extractTraceId(headers: HttpHeaders | null | undefined): string {
-    const otelTraceId = headers?.get('otel-trace-id');
+    const otelTraceId = this.getHeaderCaseInsensitive(headers, 'otel-trace-id');
     if (otelTraceId) {
-      return otelTraceId;
+      return otelTraceId.toUpperCase();
     }
 
-    const xTraceId = headers?.get('x-trace-id');
+    const xTraceId = this.getHeaderCaseInsensitive(headers, 'x-trace-id');
     if (xTraceId) {
-      return xTraceId;
+      return xTraceId.toUpperCase();
     }
 
-    const traceparent = headers?.get('traceparent');
+    const traceparent = this.getHeaderCaseInsensitive(headers, 'traceparent');
     if (traceparent) {
       const parts = traceparent.split('-');
       if (parts.length >= 2 && parts[1]) {
-        return parts[1];
+        return parts[1].toUpperCase();
       }
       return traceparent;
     }
 
     return 'não informado';
+  }
+
+  private getHeaderCaseInsensitive(
+    headers: HttpHeaders | null | undefined,
+    headerName: string
+  ): string | null {
+    if (!headers) {
+      return null;
+    }
+
+    const expected = this.normalizeHeaderName(headerName);
+    const keyByUpperCase = new Map<string, string>();
+
+    for (const key of headers.keys()) {
+      keyByUpperCase.set(this.normalizeHeaderName(key), key);
+    }
+
+    const matchedKey = keyByUpperCase.get(expected);
+    if (matchedKey) {
+      return headers.get(matchedKey);
+    }
+
+    for (const candidate of [headerName, headerName.toLowerCase(), headerName.toUpperCase()]) {
+      const value = headers.get(candidate);
+      if (value) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeHeaderName(headerName: string): string {
+    return headerName.trim().toUpperCase();
   }
 
   private formatForDisplay(payload: unknown): string {
@@ -236,6 +274,11 @@ export class PasswordComponent {
       .split(',')
       .map((item) => item.trim())
       .filter((item) => item.length > 0);
+  }
+
+  private getApiBaseUrl(): string {
+    const trimmed = this.apiBaseUrl.trim().replace(/\/+$/, '');
+    return trimmed || this.defaultApiBaseUrl;
   }
 
   private handleRequestError(prefix: string, error: any): void {

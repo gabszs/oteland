@@ -6,14 +6,81 @@
   </div>
 
   <div class="form-group">
-    <label for="id">ID (não utilizado por enquanto):</label>
+    <label for="debugUrl">URL de destino:</label>
     <input
       type="text"
-      id="id"
-      [(ngModel)]="id"
-      placeholder="Ex.: trace-id-123"
-      class="input-field"
+      id="debugUrl"
+      [(ngModel)]="debugUrl"
+      [placeholder]="defaultDebugUrl"
+      class="input-field mono-field"
     />
+    <p class="input-hint">Valor padrão já preenchido. É só clicar em enviar.</p>
+  </div>
+
+  <div class="form-group">
+    <h2 class="block-title">Usuário Global (faro.api.setUser)</h2>
+    <div class="inline-grid">
+      <div>
+        <label for="id">User ID:</label>
+        <input
+          type="text"
+          id="id"
+          [(ngModel)]="id"
+          placeholder="Ex.: 12345"
+          class="input-field"
+        />
+      </div>
+      <div>
+        <label for="username">Username:</label>
+        <input
+          type="text"
+          id="username"
+          [(ngModel)]="username"
+          placeholder="Ex.: joao"
+          class="input-field"
+        />
+      </div>
+    </div>
+    <button
+      (click)="applyGlobalUser()"
+      class="btn-user"
+      [disabled]="loading || !id.trim() || !username.trim()"
+    >
+      Configurar usuário global no Faro
+    </button>
+    <p class="success-hint" *ngIf="userSetupMessage">{{ userSetupMessage }}</p>
+  </div>
+
+  <div class="form-group">
+    <h2 class="block-title">Meta Global (faro.api.pushMeta)</h2>
+    <p class="input-hint">
+      `app.name=meu-app`, `app.version=2.1.0`, `app.environment=production` + atributos custom.
+    </p>
+
+    <div class="meta-row" *ngFor="let item of metaAttributes; index as i">
+      <input
+        type="text"
+        [id]="'meta-key-' + i"
+        [(ngModel)]="item.key"
+        [ngModelOptions]="{ standalone: true }"
+        placeholder="chave"
+        class="input-field meta-field"
+      />
+      <input
+        type="text"
+        [id]="'meta-value-' + i"
+        [(ngModel)]="item.value"
+        [ngModelOptions]="{ standalone: true }"
+        placeholder="valor"
+        class="input-field meta-field"
+      />
+    </div>
+
+    <button (click)="addMetaAttributeRow()" class="btn-add" [disabled]="loading">+ Adicionar atributo</button>
+    <button (click)="applyGlobalMeta()" class="btn-user" [disabled]="loading">
+      Configurar atributos globais
+    </button>
+    <p class="success-hint" *ngIf="metaSetupMessage">{{ metaSetupMessage }}</p>
   </div>
 
   <div class="form-group">
@@ -27,7 +94,7 @@
     <button
       (click)="sendDebugData()"
       class="btn-send"
-      [disabled]="loading || !jsonData.trim()"
+      [disabled]="loading || !jsonData.trim() || !debugUrl.trim() || !id.trim() || !username.trim()"
     >
       {{ loading ? 'Enviando...' : 'Enviar para Debug' }}
     </button>

@@ -14,4 +14,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:5173"
-    command: pnpm dev
+    environment:
+      - FARO_WEB_URL=${FARO_WEB_URL}
+    command: sh /app/scripts/start-dev.sh

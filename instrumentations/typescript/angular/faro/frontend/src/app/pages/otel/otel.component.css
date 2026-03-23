@@ -32,6 +32,18 @@ label {
   font-weight: bold;
 }
 
+.block-title {
+  margin: 0 0 1rem;
+  color: #155724;
+  font-size: 1.05rem;
+}
+
+.inline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .input-field {
   width: 100%;
   padding: 0.75rem;
@@ -40,6 +52,16 @@ label {
   font-size: 1rem;
   box-sizing: border-box;
   margin-bottom: 0.5rem;
+}
+
+.mono-field {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.input-hint {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
 }
 
 .textarea-field {
@@ -91,6 +113,76 @@ label {
 .btn-send:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+.btn-user {
+  width: 100%;
+  padding: 0.65rem;
+  background-color: #0066cc;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  transition: background-color 0.3s;
+}
+
+.btn-user:hover:not(:disabled) {
+  background-color: #0052a3;
+}
+
+.btn-user:disabled {
+  background-color: #aeb8c2;
+  cursor: not-allowed;
+}
+
+.meta-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.meta-field {
+  margin-bottom: 0;
+}
+
+.btn-add {
+  width: 100%;
+  padding: 0.65rem;
+  background-color: #4a5568;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-top: 0.75rem;
+  transition: background-color 0.3s;
+}
+
+.btn-add:hover:not(:disabled) {
+  background-color: #2d3748;
+}
+
+.btn-add:disabled {
+  background-color: #aeb8c2;
+  cursor: not-allowed;
+}
+
+.success-hint {
+  margin: 0.6rem 0 0;
+  color: #155724;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 700px) {
+  .inline-grid,
+  .meta-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .display-section {
