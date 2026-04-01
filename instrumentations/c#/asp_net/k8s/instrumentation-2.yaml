@@ -1,0 +1,14 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: dotnet-auto-instrumentation2
+  namespace: password-generator-dotnet
+spec:
+  exporter:
+    endpoint: http://otel-collector-deployment-opentelemetry-collector.observability.svc.cluster.local:4318
+  propagators:
+    - tracecontext
+    - baggage
+  sampler:
+    type: parentbased_traceidratio
+    argument: "1"
