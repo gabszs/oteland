@@ -1,0 +1,74 @@
+---
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: clickhouse-keeper
+  namespace: clickhouse
+spec:
+  configuration:
+    clusters:
+      - name: ch
+        layout:
+          replicasCount: 3
+---
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: clickhouse
+  namespace: clickhouse
+spec:
+  configuration:
+    zookeeper:
+      nodes:
+        - host: keeper-clickhouse-keeper.clickhouse.svc.cluster.local
+          port: 2181
+    clusters:
+      - name: ch
+        layout:
+          shardsCount: 2
+          replicasCount: 2
+    settings:
+      storage_configuration/disks/logging/type: s3
+      storage_configuration/disks/logging/endpoint: http://192.168.1.4:3900/clickhouse-k3s/clickhouse/{installation}/{replica}/
+      storage_configuration/disks/logging/access_key_id: GK04646bc70e8928f57ca3db95
+      storage_configuration/disks/logging/secret_access_key: 1a9dd69f3336bfc80c368a9d2ffbcf6f862268167742ed3cfc56a3cda8e53f15
+      storage_configuration/policies/s3_main/volumes/main/disk: logging
+    users:
+      admin_user/password:
+        valueFrom:
+          secretKeyRef:
+            name: clickhouse-logging-creds
+            key: admin_password
+      admin_user/networks/ip: 0.0.0.0/0
+      admin_user/profile: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhouse-logging-creds
+  namespace: clickhouse
+type: Opaque
+stringData:
+  user: clickhouse_user
+  password: clickhouse_password
+  admin_password: clickhouse_admin_password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-lb
+  namespace: clickhouse
+spec:
+  type: LoadBalancer
+  selector:
+    clickhouse.altinity.com/chi: clickhouse
+    clickhouse.altinity.com/cluster: ch
+  ports:
+    - name: http
+      port: 8123
+      targetPort: 8123
+      protocol: TCP
+    - name: native
+      port: 9000
+      targetPort: 9000
+      protocol: TCP

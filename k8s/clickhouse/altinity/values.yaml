@@ -1,0 +1,9 @@
+configs:
+  files:
+    config.yaml:
+      watch:
+        namespaces:
+          include:
+            - logging
+            - clickhouse
+          exclude: []

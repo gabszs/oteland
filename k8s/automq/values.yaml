@@ -1,0 +1,124 @@
+# ============================================================
+# AutoMQ Open Source — via Bitnami Kafka Helm Chart
+# k3s + Garage S3 | 1 controller + 1 broker (dev/homelab)
+# ============================================================
+
+global:
+  security:
+    allowInsecureImages: true
+
+image:
+  registry: docker.io
+  repository: automqinc/automq
+  tag: 1.5.0-bitnami
+  pullPolicy: Always
+
+extraEnvVars:
+  - name: AWS_ACCESS_KEY_ID
+    value: "GK04646bc70e8928f57ca3db95"
+  - name: AWS_SECRET_ACCESS_KEY
+    value: "1a9dd69f3336bfc80c368a9d2ffbcf6f862268167742ed3cfc56a3cda8e53f15"
+
+# ============================================================
+# Controller — 1 réplica (sem HA, ok para dev/homelab)
+# ============================================================
+controller:
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "4Gi"
+    limits:
+      memory: "6Gi"
+
+  heapOpts: "-Xmx3g -Xms3g -XX:MaxDirectMemorySize=2g -XX:MetaspaceSize=128m"
+
+  extraConfig: |
+    elasticstream.enable=true
+    autobalancer.client.auth.sasl.mechanism=PLAIN
+    autobalancer.client.auth.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="inter_broker_user" password="interbroker-password-placeholder" user_inter_broker_user="interbroker-password-placeholder";
+    autobalancer.client.auth.security.protocol=SASL_PLAINTEXT
+    autobalancer.client.listener.name=INTERNAL
+    s3.wal.cache.size=1073741824
+    s3.block.cache.size=536870912
+    s3.stream.allocator.policy=POOLED_DIRECT
+    s3.network.baseline.bandwidth=125000000
+    s3.ops.buckets=1@s3://automq-ops?region=garage&endpoint=http://192.168.1.4:3900&pathStyle=true
+    s3.data.buckets=0@s3://automq-data?region=garage&endpoint=http://192.168.1.4:3900&pathStyle=true
+    s3.wal.path=0@s3://automq-data?region=garage&endpoint=http://192.168.1.4:3900&pathStyle=true
+    s3.telemetry.metrics.exporter.uri=otlp://?endpoint=http://otel-collector-deployment-opentelemetry-collector.observability.svc.cluster.local:4317&protocol=grpc
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - broker
+  topologySpreadConstraints: []
+  tolerations: []
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: "local-path"
+
+# ============================================================
+# Broker — 1 réplica
+# ============================================================
+broker:
+  replicaCount: 1
+
+  # extraEnvVars:
+  #   - name: KAFKA_CFG_ADVERTISED_LISTENERS
+  #     value: "SASL_PLAINTEXT://192.168.1.111:9092"
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "4Gi"
+    limits:
+      memory: "6Gi"
+
+  heapOpts: "-Xmx3g -Xms3g -XX:MaxDirectMemorySize=2g -XX:MetaspaceSize=128m"
+
+  extraConfig: |
+    elasticstream.enable=true
+    autobalancer.client.auth.sasl.mechanism=PLAIN
+    autobalancer.client.auth.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="inter_broker_user" password="interbroker-password-placeholder" user_inter_broker_user="interbroker-password-placeholder";
+    autobalancer.client.auth.security.protocol=SASL_PLAINTEXT
+    autobalancer.client.listener.name=INTERNAL
+    s3.wal.cache.size=1073741824
+    s3.block.cache.size=536870912
+    s3.stream.allocator.policy=POOLED_DIRECT
+    s3.network.baseline.bandwidth=125000000
+    s3.ops.buckets=1@s3://automq-ops?region=garage&endpoint=http://192.168.1.4:3900&pathStyle=true
+    s3.data.buckets=0@s3://automq-data?region=garage&endpoint=http://192.168.1.4:3900&pathStyle=true
+    s3.wal.path=0@s3://automq-data?region=garage&endpoint=http://192.168.1.4:3900&pathStyle=true
+    s3.telemetry.metrics.exporter.uri=otlp://?endpoint=http://otel-collector-deployment-opentelemetry-collector.observability.svc.cluster.local:4317&protocol=grpc
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - controller-eligible
+  topologySpreadConstraints: []
+  tolerations: []
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: "local-path"

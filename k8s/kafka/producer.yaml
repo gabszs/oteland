@@ -1,0 +1,106 @@
+mode: deployment
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: "0.152.0"
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 65
+  targetMemoryUtilizationPercentage: 75
+
+useGOMEMLIMIT: true
+
+serviceAccount:
+  create: true
+
+ports:
+  otlp:
+    enabled: true
+  otlp-http:
+    enabled: true
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+
+service:
+  type: LoadBalancer
+  loadBalancerIP: "192.168.1.112"
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    batch:
+      timeout: 5s
+      send_batch_size: 1024
+
+  exporters:
+    kafka:
+      brokers:
+        - automq-kafka.automq.svc.cluster.local:9092
+      client_id: otel-kafka-producer
+      logs:
+        topic: otel-logs
+        encoding: otlp_json
+      metrics:
+        topic: otel-metrics
+        encoding: otlp_json
+      traces:
+        topic: otel-traces
+        encoding: otlp_json
+      auth:
+        sasl:
+          username: user1
+          password: FeOayikYWD
+          mechanism: SCRAM-SHA-256
+      retry_on_failure:
+        enabled: true
+        initial_interval: 5s
+        max_interval: 30s
+        max_elapsed_time: 300s
+      sending_queue:
+        enabled: true
+        num_consumers: 10
+        queue_size: 1000
+      producer:
+        compression: zstd
+        required_acks: 1
+
+  service:
+    pipelines:
+      metrics:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [kafka]
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [kafka]
+      logs:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [kafka]
